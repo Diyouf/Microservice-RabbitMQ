@@ -13,10 +13,24 @@ mongoose.connect('mongodb://127.0.0.1:27017/MicroservicesProducts')
         console.log(err)
     })
 
+app.post("/product/buy", async (req, res) => {
+    const { ids } = req.body;
+    const products = await Product.find({ _id: { $in: ids } });
+    channel.sendToQueue(
+        "ORDER",
+        Buffer.from(
+            JSON.stringify({
+                products,
+                userEmail: req.user.email,
+            })
+        )
+    );
+})
+
 
 
 app.post('/product/create', async (req, res) => {
-    const {name , price , description} = req.body
+    const { name, price, description } = req.body
     const newProduct = new Product({
         name,
         description,

@@ -30,6 +30,7 @@ app.post("/auth/login", async (req, res) => {
             email,
             name: user.name
         };
+        req.user = req.body
         jwt.sign(payload, "secret", (err, token) => {
             if (err) console.log(err);
             else return res.json({ token: token });
