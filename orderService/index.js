@@ -5,6 +5,7 @@ const Order = require('./orderModel')
 const amqp = require('amqplib')
 
 app.use(express.json());
+let channel, connection
 
 mongoose.connect('mongodb://127.0.0.1:27017/MicroservicesOrder')
     .then(() => {
@@ -25,7 +26,7 @@ async function craeteOrder(product, userEmail) {
     const newOrder = new Order({
         products: product,
         user: userEmail,
-        total_price: totalPricex
+        total_price: totalPrice
     })
 
     await newOrder.save()
@@ -35,15 +36,30 @@ async function craeteOrder(product, userEmail) {
 
 async function connect() {
     const amqpServer = "amqp://localhost";
-    const connection = await amqp.connect(amqpServer);
-    const channel = await connection.createChannel();
+    connection = await amqp.connect(amqpServer);
+    channel = await connection.createChannel();
     await channel.assertQueue("ORDER");
 
-    
+
 }
 
+app.get('/orders/getAll', async (req, res) => {
+    const orders = await Order.find({})
+    return res.json(orders)
+})
+
 connect().then(() => {
-    console.log("Connected to RabbitMQ server and consuming messages...");
+    channel.consume("ORDER", async (data) => {
+        const { products, userEmail } = JSON.parse(data.content);
+        const newOrder = await craeteOrder(products, userEmail)
+        channel.ack(data);
+        console.log(newOrder)
+        channel.sendToQueue(
+            "PRODUCT",
+            Buffer.from(JSON.stringify(newOrder))
+        );
+
+    })
 }).catch(error => {
     console.error("Error connecting to RabbitMQ:", error);
 });
